@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>GameScene</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: white;
+            overflow: hidden;
+        }
+
+        #background {
+            background-image: url("assets/Images/GameScene_BackGround01.png");
+            background-size: cover;
+            position: relative;
+            overflow: hidden;
+            margin: 0 auto;
+            width: 900px;
+            height: 600px;
+            border: 5px solid black;
+        }
+
+        #controllbox {
+            position: relative;
+            width: 900px;
+            height: 100px;
+            border: 5px solid black;
+        }
+
+        #startText, #gameOverText {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            font-weight: bold;
+            color: #0077ff;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        #timer, #score {
+            position: absolute;
+            font-size: 24px;
+            color: white;
+        }
+        #timer { top: 10px; right: 10px; }
+        #score { top: 10px; left: 10px; }
+
+        #backButton {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #fff;
+            background-color: #ff0000;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #player {
+            background-image: url("assets/Images/256fee4e8eda9ffb4b1641eb9c3ac70a37a0b22b9f9de058da13e8f7aa4c6c5b.gif");
+            background-size: cover;
+            position: absolute;
+            width: 150px;
+            height: 150px;
+            left: 300px;
+            top: 450px;
+            transition: transform 0.2s;
+        }
+
+        .enemy {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+        }
+
+        .item{
+            position: absolute;
+            width: 50px;
+            height: 50px;
+        }
+
+        #playMusicButton {
+            position: absolute;
+            top: 15px;
+            right: 10px;
+            padding: 20px 20px;
+            font-size: 20px;
+            background-color: #36ff00;
+            color: black;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 210px;
+        }
+
+        #playMusicButton:hover {
+            background-color: #28cc00;
+        }
+    </style>
+
+    <script>
+
+        $(document).ready(() => {
+            initGame();
+        });
+
+        function initGame() {
+            showStartText();
+            respawnEnemy();
+            respawnItem();
+            startTimer();
+            gameLoop(); // 게임 루프 시작
+        }
+
+        function showStartText() {
+            const startText = $("#startText");
+            startText.css("opacity", 1);
+            setTimeout(() => {
+                startText.css("opacity", 0);
+            }, 2000);
+        }
+
+        function backGame() {
+            window.location.href = "IntroScene.html";
+        }
+
+        let isJumping = false;
+        const jumpImage = "assets/Images/jump.gif"
+
+        function moveLeft() {
+            const player = $("#player");
+            const newLeft = parseInt(player.css("left")) - 50;
+
+            if (newLeft >= 0) {
+                player.css("left", newLeft + "px");
+                player.css("transform", "scaleX(1)");
+            }
+        }
+
+        function moveRight() {
+            const player = $("#player");
+            const newLeft = parseInt(player.css("left")) + 50;
+            const containerWidth = $("#background").width();
+
+            if (newLeft + player.width() <= containerWidth) {
+                player.css("left", newLeft + "px");
+                player.css("transform", "scaleX(-1)");
+            }
+        }
+
+        function jump() {
+            if (isJumping) return;
+            isJumping = true;
+
+            // 점프 시작 시 이미지 변경
+            $("#player").css("background-image", `url(${jumpImage})`);
+
+            $("#player").animate({
+                top: "-=50px"
+            }, 500).animate({
+                top: "+=50px"
+            }, 600, () => {
+                $("#player").css("background-image", `url(${originImage})`);
+                isJumping = false;
+            });
+        }
+
+        let enemyDirectionX = 1;
+
+        function respawnEnemy() {
+            const enemy = $(".enemy");
+            const backgroundWidth = $("#background").width();
+            const backgroundHeight = $("#background").height();
+
+            // 적의 위치를 화면 중앙에 배치
+            const enemyLeft = (backgroundWidth / 2) - (enemy.width() / 2); // 중앙 위치
+            const enemyTop = 270;
+
+            // 적의 위치와 크기 초기화: top은 세로 방향의 위치, left는 화면 중앙
+            enemy.css({
+                "top": enemyTop + "px", // 화면 중앙에서 시작
+                "left": enemyLeft + "px", // 중앙
+                "transform": "scale(0.5)" // 처음 크기를 작게 설정
+            });
+
+            // 방향을 랜덤하게 설정 (-1: 왼쪽, 1: 오른쪽, 0: 중앙)
+            const randomDirection = Math.floor(Math.random() * 3); // 0, 1, 2 중 하나
+
+            if (randomDirection === 0) {
+                enemyDirectionX = -1; // 왼쪽으로 이동
+            } else if (randomDirection === 1) {
+                enemyDirectionX = 1; // 오른쪽으로 이동
+            } else {
+                enemyDirectionX = 0; // 중앙으로 유지
+            }
+        }
+
+        // 적 움직임 함수
+        function moveEnemy() {
+            const enemy = $(".enemy");
+            const currentTop = parseInt(enemy.css("top"));
+            const currentLeft = parseInt(enemy.css("left"));
+
+            // 현재 크기 읽기 및 기본값 설정
+            let currentScale = parseFloat(enemy.css("transform").split(",")[0].replace("matrix(", "")) || 0.5;
+
+            // 크기 증가
+            currentScale += 0.007;
+            enemy.css("transform", `scale(${currentScale})`);
+
+            // 아래 방향으로 이동
+            const moveDown = 1; // 이동 거리
+            const moveSide = 1.0 * enemyDirectionX; // 가로 이동 방향
+
+            enemy.css({
+                top: (currentTop + moveDown) + "px",
+                left: (currentLeft + moveSide) + "px"
+            });
+
+            // 화면을 벗어나면 다시 생성
+            if (currentTop > $("#background").height() || currentLeft < 0 || currentLeft > ($("#background").width() - enemy.width())) {
+                respawnEnemy();
+            }
+        }
+
+        $(document).on("keydown", (event) => {
+            if (event.key === "ArrowLeft") {
+                moveLeft();
+            } else if (event.key === "ArrowRight") {
+                moveRight();
+            } else if (event.key === " ") {
+                jump();
+            }
+        });
+
+        let timeLeft = 60;
+        let gameTimer;
+        let score = 0;
+
+        const scoreUpSound = new Audio("assets/audios/Get_Coin01.mp3");
+        const scoreDownSound = new Audio("assets/audios/low_hop.mp3");
+
+        const originImage = "assets/Images/256fee4e8eda9ffb4b1641eb9c3ac70a37a0b22b9f9de058da13e8f7aa4c6c5b.gif";
+        const collisionImage = "assets/Images/Hit.gif";
+        const funImage = "assets/Images/getCoin.gif";
+
+        function playBackgroundMusic() {
+            const backgroundMusic = document.getElementById("backgroundMusic");
+            backgroundMusic.play().then(() => {
+                document.getElementById("playMusicButton").style.display = "none";
+            }).catch(error => {
+                console.log("음악 재생 실패:", error);
+            });
+        }
+
+        function startTimer() {
+            gameTimer = setInterval(() => {
+                if (timeLeft > 0) {
+                    timeLeft--;
+                    $("#timer").text("Time: " + timeLeft);
+                } else {
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        function endGame() {
+            clearInterval(gameTimer);
+            $("#gameOverText").html(`게임 종료<br>최종 점수: ${score}`).css("opacity", 1);
+            $(".enemy, .item").hide();
+        }
+
+        function updateScore(value) {
+            score += value;
+            $("#score").text("Score: " + score);
+
+            if (value > 0) {
+                scoreUpSound.play();
+            } else {
+                scoreDownSound.play();
+            }
+        }
+
+        // 아이템 움직임 함수
+        function moveItem() {
+            const item = $(".item");
+            const currentLeft = parseInt(item.css("left"));
+
+            // 이동 거리 조정 (현재보다 적은 값으로 설정)
+            const moveLeft = 1; // 원래 5에서 2로 변경
+
+            item.css("left", (currentLeft - moveLeft) + "px");
+
+            if (currentLeft < -100) {
+                respawnItem();
+            }
+        }
+
+        function respawnItem() {
+            const backgroundWidth = $("#background").width();
+            $(".item").css({
+                "left": backgroundWidth + "px",
+                "top": "380px"
+            });
+        }
+
+        function collisionCheck() {
+            const player = $("#player");
+            const enemy = $(".enemy");
+            const item = $(".item");
+
+            const playerRect = player[0].getBoundingClientRect();
+            const enemyRect = enemy[0]?.getBoundingClientRect();
+            const itemRect = item[0]?.getBoundingClientRect();
+
+            if (enemyRect && playerRect.left < enemyRect.right &&
+                playerRect.right > enemyRect.left &&
+                playerRect.top < enemyRect.bottom &&
+                playerRect.bottom > enemyRect.top) {
+                player.css("background-image", `url(${collisionImage})`);
+                setTimeout(() => {
+                    player.css("background-image", `url(${originImage})`);
+                }, 1000);
+                updateScore(-1);
+                respawnEnemy();
+            }
+
+            if (itemRect && playerRect.left < itemRect.right &&
+                playerRect.right > itemRect.left &&
+                playerRect.top < itemRect.bottom &&
+                playerRect.bottom > itemRect.top) {
+                player.css("background-image", `url(${funImage})`);
+                setTimeout(() => {
+                    player.css("background-image", `url(${originImage})`);
+                }, 1000);
+                updateScore(1);
+                respawnItem();
+            }
+        }
+
+        function gameLoop(){
+            moveEnemy();
+            moveItem();
+            collisionCheck();
+            requestAnimationFrame(gameLoop);
+        }
+
+    </script>
+</head>
+<body>
+<div id="fullbox">
+    <div id="background">
+        <div id="score">Score: 0</div>
+        <div id="timer">Timer: 60</div>
+        <div id="startText">모험 시작</div>
+        <div id="gameOverText"></div>
+        <div id="player"></div>
+        <div class="enemy">
+            <img src="assets/Images/민트%20초코%20아이스크림.png" width="50px">
+        </div>
+        <div class="item">
+            <img src="assets/Images/butterbbang.png" width="50px">
+        </div>
+    </div>
+    <div id="controllbox">
+        <button id="backButton" onclick="backGame()">돌아 가기</button>
+        <img src="assets/Images/directional%20key.png" width="100px" style="margin-left: 20px;">
+        <img src="assets/Images/space-button-icon.png" width="70px">
+        <button id="playMusicButton" onclick="playBackgroundMusic()">음악 재생</button>
+        <audio id="backgroundMusic" src="assets/audios/02%20-%20Main%20Bgm.mp3" loop></audio>
+    </div>
+</div>
+</body>
+</html>
